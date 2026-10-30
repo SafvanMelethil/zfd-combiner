@@ -7,3 +7,4 @@ Combine numbered `.txt` files (e.g. `1-50.txt` + `51-100.txt` → `1-100.txt`).
 - Runs fully in the browser — files never leave your computer.
 
 Open `index.html`, or enable GitHub Pages (Settings → Pages → Deploy from branch → `main` / root).
+
