@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>body{margin:0}[hidden]{display:none!important}*{box-sizing:border-box}</style>
+<title>ZFD Combiner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one centered working column — drop files, check the order, verify counts, download. */
+:root{
+  --bg:#f3f6f5; --panel:#ffffff; --ink:#15211e; --muted:#5c6b67; --line:#d9e2df;
+  --accent:#0f6e5c; --accent-ink:#ffffff; --accent-soft:#e2f1ed;
+  --ok:#1d7a3d; --ok-soft:#e3f4e8; --warn:#9a5b00; --warn-soft:#fbefd9; --bad:#b3261e; --bad-soft:#fbe4e2;
+  --code:#eef3f1;
+  --f-sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1514; --panel:#171f1d; --ink:#e4ece9; --muted:#93a39e; --line:#2a3633;
+  --accent:#4cc3a6; --accent-ink:#06211b; --accent-soft:#16302a;
+  --ok:#6fd38f; --ok-soft:#15301e; --warn:#f0b75a; --warn-soft:#33270f; --bad:#ff8a80; --bad-soft:#3a1715;
+  --code:#121a18; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0f1514; --panel:#171f1d; --ink:#e4ece9; --muted:#93a39e; --line:#2a3633;
+  --accent:#4cc3a6; --accent-ink:#06211b; --accent-soft:#16302a;
+  --ok:#6fd38f; --ok-soft:#15301e; --warn:#f0b75a; --warn-soft:#33270f; --bad:#ff8a80; --bad-soft:#3a1715;
+  --code:#121a18; color-scheme:dark }
+body{background:var(--bg);color:var(--ink);font-family:var(--f-sans);font-size:15px;line-height:1.5}
+.wrap{max-width:760px;margin:0 auto;padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:20px}
+header h1{margin:0;font-size:26px;font-weight:700;letter-spacing:-.01em}
+header p{margin:4px 0 0;color:var(--muted);max-width:62ch}
+.mono{font-family:var(--f-mono)}
+.drop{border:2px dashed var(--line);border-radius:10px;background:var(--panel);padding:26px 16px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;transition:border-color .15s,background .15s}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop strong{font-size:16px}
+.drop small{color:var(--muted)}
+button,.btn{font:inherit;font-weight:600;border-radius:7px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:8px 14px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.icon-btn{padding:4px 9px;font-size:13px;font-weight:500}
+.section-label{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.example-note{background:var(--warn-soft);color:var(--warn);border-radius:7px;padding:8px 12px;font-size:13px}
+.files{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
+.file{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center}
+.file .pos{font-family:var(--f-mono);font-size:13px;color:var(--muted);width:2ch;text-align:right}
+.file .info{min-width:0}
+.file .name{font-weight:600;overflow-wrap:anywhere}
+.file .meta{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 12px;font-variant-numeric:tabular-nums}
+.file .actions{display:flex;gap:4px}
+.pill{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:99px}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.keep{background:var(--accent-soft);color:var(--accent)}
+.result{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:14px}
+.outname{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.outname label{font-weight:600}
+.outname input{font:500 15px var(--f-mono);padding:7px 10px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);flex:1;min-width:0;max-width:320px}
+table.check{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:14px}
+table.check td{padding:6px 0;border-bottom:1px solid var(--line)}
+table.check td:last-child{text-align:right;font-family:var(--f-mono)}
+table.check tr.total td{font-weight:700;border-bottom:none}
+.verdict{border-radius:8px;padding:10px 14px;font-weight:600}
+.verdict.ok{background:var(--ok-soft);color:var(--ok)}
+.verdict.bad{background:var(--bad-soft);color:var(--bad)}
+.preview{background:var(--code);border-radius:8px;padding:10px 12px;font:13px/1.55 var(--f-mono);overflow-x:auto;white-space:pre;max-height:260px;overflow-y:auto;margin:0}
+.preview .gap{color:var(--muted)}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.status{font-size:14px;color:var(--muted)}
+.empty{color:var(--muted);text-align:center;padding:12px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>ZFD Combiner</h1>
+    <p>Drop your text files (like <span class="mono">1-50.txt</span> and <span class="mono">51-100.txt</span>). The first file keeps its header, the header line is removed from every other file, and every data line is kept. You get <span class="mono">1-100.txt</span>.</p>
+  </header>
+
+  <div class="drop" id="drop">
+    <strong>Drop .txt files here</strong>
+    <small>2 or more files · they are sorted by the number in the name</small>
+    <label class="btn" for="picker" style="display:inline-block">Choose files</label>
+    <input type="file" id="picker" accept=".txt,text/plain" multiple hidden>
+  </div>
+
+  <section>
+    <p class="section-label">Files, in combine order</p>
+    <div class="example-note" id="exampleNote">Showing 2 example files. Drop your own files to replace them.</div>
+    <ul class="files" id="files" style="margin-top:8px"></ul>
+  </section>
+
+  <section class="result" id="result">
+    <div class="outname">
+      <label for="outName">Output file</label>
+      <input id="outName" type="text" spellcheck="false">
+    </div>
+    <div>
+      <p class="section-label">Line check</p>
+      <table class="check" id="checkTable"></table>
+    </div>
+    <div class="verdict" id="verdict"></div>
+    <div>
+      <p class="section-label">Preview: start and end of the combined file</p>
+      <pre class="preview" id="preview"></pre>
+    </div>
+    <div class="btnrow">
+      <button class="primary" id="dlBtn" type="button">Download</button>
+      <button id="copyBtn" type="button">Copy text</button>
+      <span class="status" id="status" role="status"></span>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  let files = [];          // {name, text, encoding, bom, eol}
+  let isExample = true;
+  let userEditedName = false;
+  let combined = null;
+  let downloads = null;
+  const $ = id => document.getElementById(id);
+
+  // ---------- reading ----------
+  function decode(buf){
+    const b = new Uint8Array(buf);
+    let enc = "utf-8", bom = false, start = 0;
+    if (b[0]===0xEF && b[1]===0xBB && b[2]===0xBF){ bom = true; start = 3; }
+    else if (b[0]===0xFF && b[1]===0xFE){ enc = "utf-16le"; bom = true; start = 2; }
+    else if (b[0]===0xFE && b[1]===0xFF){ enc = "utf-16be"; bom = true; start = 2; }
+    let text;
+    if (enc === "utf-8"){
+      try { text = new TextDecoder("utf-8",{fatal:true}).decode(b.subarray(start)); }
+      catch(e){ enc = "windows-1252"; text = new TextDecoder("windows-1252").decode(b.subarray(start)); }
+    } else {
+      text = new TextDecoder(enc).decode(b.subarray(start));
+    }
+    return {text, encoding:enc, bom};
+  }
+  function splitLines(text){
+    const eol = text.indexOf("\r\n") >= 0 ? "\r\n" : "\n";
+    let lines = text.split(/\r\n|\n|\r/);
+    while (lines.length && lines[lines.length-1].trim() === "") lines.pop(); // only trailing blank lines
+    return {lines, eol};
+  }
+  function makeFile(name, text, encoding, bom){
+    const {lines, eol} = splitLines(text);
+    return {name, lines, encoding, bom, eol};
+  }
+  function numbersOf(name){
+    const m = name.match(/(\d+)\s*[-_–]\s*(\d+)/);
+    if (m) return [parseInt(m[1],10), parseInt(m[2],10)];
+    const n = name.match(/(\d+)/);
+    return n ? [parseInt(n[1],10), parseInt(n[1],10)] : [Infinity, Infinity];
+  }
+  function sortFiles(){
+    files.sort((a,b)=>{
+      const x=numbersOf(a.name), y=numbersOf(b.name);
+      return x[0]-y[0] || x[1]-y[1] || a.name.localeCompare(b.name);
+    });
+  }
+
+  async function addFiles(list){
+    const arr = Array.from(list).filter(f => /\.txt$/i.test(f.name) || f.type === "text/plain");
+    if (!arr.length){ setStatus("Only .txt files can be combined."); return; }
+    const read = await Promise.all(arr.map(async f => {
+      const d = decode(await f.arrayBuffer());
+      return makeFile(f.name, d.text, d.encoding, d.bom);
+    }));
+    if (isExample){ files = []; isExample = false; userEditedName = false; }
+    for (const nf of read){
+      const i = files.findIndex(f => f.name === nf.name);
+      if (i >= 0) files[i] = nf; else files.push(nf);
+    }
+    sortFiles();
+    render();
+  }
+
+  // ---------- combining ----------
+  const norm = s => s.replace(/^﻿/,"").trim();
+  function combine(){
+    if (!files.length) return null;
+    const first = files[0];
+    const header = first.lines[0] ?? "";
+    const out = first.lines.slice();
+    const rows = [];
+    rows.push({name:first.name, data:Math.max(first.lines.length-1,0), headerRemoved:false, isFirst:true});
+    let expected = Math.max(first.lines.length-1,0);
+    for (let i=1;i<files.length;i++){
+      const f = files[i];
+      const same = f.lines.length && norm(f.lines[0]) === norm(header);
+      const body = same ? f.lines.slice(1) : f.lines.slice();
+      out.push(...body);
+      rows.push({name:f.name, data:body.length, headerRemoved:same, isFirst:false});
+      expected += body.length;
+    }
+    const actual = out.length - 1;
+    return {lines:out, header, rows, expected, actual, eol:first.eol, encoding:first.encoding, bom:first.bom};
+  }
+  function suggestedName(){
+    if (!files.length) return "combined.txt";
+    const a = files[0].name, z = files[files.length-1].name;
+    const m1 = a.match(/^(.*?)(\d+)(\s*[-_–]\s*)(\d+)(.*)$/);
+    const m2 = z.match(/(\d+)\s*[-_–]\s*(\d+)(?!.*\d+\s*[-_–]\s*\d+)/);
+    if (m1 && m2) return m1[1] + m1[2] + m1[3] + m2[2] + m1[5];
+    return "combined.txt";
+  }
+  function encodeOutput(c){
+    const text = c.lines.join(c.eol) + c.eol;
+    if (c.encoding === "utf-16le" || c.encoding === "utf-16be"){
+      const le = c.encoding === "utf-16le";
+      const buf = new Uint8Array(2 + text.length*2);
+      buf[0] = le?0xFF:0xFE; buf[1] = le?0xFE:0xFF;
+      for (let i=0;i<text.length;i++){
+        const cc = text.charCodeAt(i);
+        buf[2+i*2] = le ? cc & 255 : cc >> 8;
+        buf[3+i*2] = le ? cc >> 8 : cc & 255;
+      }
+      return new Blob([buf]);
+    }
+    if (c.encoding === "windows-1252") return new Blob([text]); // saved as UTF-8
+    return new Blob([(c.bom ? "﻿" : "") + text]);
+  }
+
+  // ---------- rendering ----------
+  function render(){
+    $("exampleNote").hidden = !isExample;
+    const ul = $("files");
+    ul.textContent = "";
+    if (!files.length){
+      const li = document.createElement("li"); li.className = "empty"; li.textContent = "No files yet. Drop at least 2 .txt files above.";
+      ul.appendChild(li);
+    }
+    combined = combine();
+    files.forEach((f,i)=>{
+      const r = combined.rows[i];
+      const li = document.createElement("li"); li.className = "file";
+      const pos = document.createElement("span"); pos.className="pos"; pos.textContent = i+1;
+      const info = document.createElement("div"); info.className="info";
+      const nm = document.createElement("div"); nm.className="name"; nm.textContent = f.name;
+      const meta = document.createElement("div"); meta.className="meta";
+      const pill = document.createElement("span");
+      if (r.isFirst){ pill.className="pill keep"; pill.textContent="Header kept"; }
+      else if (r.headerRemoved){ pill.className="pill ok"; pill.textContent="Header removed"; }
+      else { pill.className="pill warn"; pill.textContent="First line differs from header, kept as data"; }
+      const cnt = document.createElement("span"); cnt.textContent = r.data.toLocaleString() + " data lines";
+      meta.append(pill, cnt);
+      info.append(nm, meta);
+      const act = document.createElement("div"); act.className="actions";
+      const up = btn("↑","Move up",()=>{ [files[i-1],files[i]]=[files[i],files[i-1]]; render(); }); up.disabled = i===0;
+      const dn = btn("↓","Move down",()=>{ [files[i+1],files[i]]=[files[i],files[i+1]]; render(); }); dn.disabled = i===files.length-1;
+      const rm = btn("✕","Remove",()=>{ files.splice(i,1); render(); });
+      act.append(up,dn,rm);
+      li.append(pos,info,act);
+      ul.appendChild(li);
+    });
+
+    const res = $("result");
+    res.hidden = files.length < 2;
+    if (files.length < 2) return;
+
+    if (!userEditedName) $("outName").value = suggestedName();
+
+    const t = $("checkTable"); t.textContent = "";
+    const addRow = (label, val, cls) => {
+      const tr = document.createElement("tr"); if (cls) tr.className = cls;
+      const a = document.createElement("td"); a.textContent = label;
+      const b = document.createElement("td"); b.textContent = val;
+      tr.append(a,b); t.appendChild(tr);
+    };
+    addRow("Header line", "1");
+    combined.rows.forEach(r => addRow(r.name + " data lines", r.data.toLocaleString()));
+    addRow("Expected data lines", combined.expected.toLocaleString());
+    addRow("Data lines in output", combined.actual.toLocaleString(), "total");
+
+    const v = $("verdict");
+    const warn = combined.rows.some(r => !r.isFirst && !r.headerRemoved);
+    if (combined.expected === combined.actual){
+      v.className = "verdict ok";
+      v.textContent = "All " + combined.actual.toLocaleString() + " data lines are in the output, with one header at the top." + (warn ? " One or more files did not start with the same header, so their first line was kept." : "");
+    } else {
+      v.className = "verdict bad";
+      v.textContent = "Line count mismatch. Do not use this output.";
+    }
+
+    const pv = $("preview"); pv.textContent = "";
+    const L = combined.lines, N = 6;
+    if (L.length <= N*2+1){ pv.textContent = L.join("\n"); }
+    else {
+      pv.append(document.createTextNode(L.slice(0,N).join("\n") + "\n"));
+      const g = document.createElement("span"); g.className="gap"; g.textContent = "… " + (L.length-N*2).toLocaleString() + " more lines …\n";
+      pv.append(g, document.createTextNode(L.slice(-N).join("\n")));
+    }
+  }
+  function btn(txt,label,fn){
+    const b = document.createElement("button"); b.type="button"; b.className="icon-btn"; b.textContent=txt;
+    b.setAttribute("aria-label",label); b.title=label; b.addEventListener("click",fn); return b;
+  }
+  function setStatus(s){ $("status").textContent = s; }
+
+  // ---------- actions ----------
+  $("outName").addEventListener("input", ()=>{ userEditedName = true; });
+  $("dlBtn").addEventListener("click", async ()=>{
+    if (!combined) return;
+    let name = $("outName").value.trim() || "combined.txt";
+    if (!/\.txt$/i.test(name)) name += ".txt";
+    if (!downloads){
+      const url = URL.createObjectURL(encodeOutput(combined));
+      const a = document.createElement("a"); a.href = url; a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url), 2000);
+      setStatus("Saved " + name);
+      return;
+    }
+    try {
+      await downloads.save({filename:name, data:encodeOutput(combined)});
+      setStatus("Saved " + name);
+    } catch(e){
+      const c = e && e.code;
+      if (c === "declined") setStatus("Download cancelled.");
+      else if (c === "rate_limited") setStatus("A save prompt is already open. Try again in a moment.");
+      else { setStatus("Download isn't available here. Use Copy text instead."); }
+    }
+  });
+  $("copyBtn").addEventListener("click", async ()=>{
+    if (!combined) return;
+    const text = combined.lines.join("\n") + "\n";
+    try { await navigator.clipboard.writeText(text); setStatus("Copied " + combined.lines.length.toLocaleString() + " lines."); }
+    catch(e){
+      const pv = $("preview"); pv.textContent = text;
+      const r = document.createRange(); r.selectNodeContents(pv);
+      const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+      setStatus("Copy was blocked. The full text is selected in the preview, press Ctrl+C.");
+    }
+  });
+  const drop = $("drop");
+  ["dragenter","dragover"].forEach(ev => drop.addEventListener(ev, e=>{ e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave","drop"].forEach(ev => drop.addEventListener(ev, e=>{ e.preventDefault(); drop.classList.remove("over"); }));
+  drop.addEventListener("drop", e => { if (e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
+  window.addEventListener("dragover", e => e.preventDefault());
+  window.addEventListener("drop", e => { e.preventDefault(); if (e.target.closest && !e.target.closest("#drop") && e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
+  $("picker").addEventListener("change", e => { addFiles(e.target.files); e.target.value = ""; });
+
+  // ---------- example data ----------
+  const hdr = "ID\tItem\tQty";
+  const mk = (a,b) => [hdr].concat(Array.from({length:b-a+1},(_,k)=>(a+k)+"\tItem "+(a+k)+"\t"+((a+k)*3%17+1))).join("\n")+"\n";
+  files = [makeFile("1-50.txt", mk(1,50), "utf-8", false), makeFile("51-100.txt", mk(51,100), "utf-8", false)];
+  render();
+
+  // ---------- downloads capability ----------
+  try {
+    if (window.claude && claude.use){
+      claude.use("downloads").then(d => { downloads = d; render(); }).catch(()=>{});
+    }
+  } catch(e){}
+})();
+</script>
+
+</body>
+</html>
